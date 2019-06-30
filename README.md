@@ -1,4 +1,5 @@
 [![License](https://img.shields.io/github/license/onox/inotify-ada.svg?color=blue)](https://github.com/onox/inotify-ada/blob/master/LICENSE)
+[![Build status](https://img.shields.io/shippable/5d18ebf6cecb900006e7c241/master.svg)](https://app.shippable.com/github/onox/inotify-ada)
 [![GitHub release](https://img.shields.io/github/release/onox/inotify-ada.svg)](https://github.com/onox/inotify-ada/releases/latest)
 [![IRC](https://img.shields.io/badge/IRC-%23ada%20on%20freenode-orange.svg)](https://webchat.freenode.net/?channels=ada)
 
@@ -43,7 +44,7 @@ end Main;
 
 In order to build the library, you need to have:
 
- * An Ada 2012 compiler
+ * An Ada 2012 compiler implementing `GNAT.OS_Lib`
 
  * GPRBuild and `make`
 
