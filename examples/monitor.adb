@@ -15,26 +15,37 @@
 with Ada.Command_Line;
 with Ada.Text_IO;
 
-with Inotify;
+with Inotify.Recursive;
 
 procedure Monitor is
+   Instance : Inotify.Recursive.Recursive_Instance;
+
    procedure Handle_Event
      (Subject      : Inotify.Watch;
       Event        : Inotify.Event_Kind;
       Is_Directory : Boolean;
-      Name         : String) is
+      Name         : String)
+   is
+      Kind : constant String := (if Is_Directory then "directory" else "file");
    begin
-      Ada.Text_IO.Put_Line (Event'Image);
-
-      if Is_Directory then
-         Ada.Text_IO.Put_Line ("  [directory] '" & Name & "'");
-      else
-         Ada.Text_IO.Put_Line ("  [file] '" & Name & "'");
-      end if;
+      Ada.Text_IO.Put_Line (Event'Image & " " & Instance.Name (Subject));
+      Ada.Text_IO.Put_Line ("  [" & Kind & "] '" & Name & "'");
    end Handle_Event;
 
-   I : Inotify.Instance;
+   procedure Handle_Move_Event
+     (Subject      : Inotify.Watch;
+      Is_Directory : Boolean;
+      From, To     : String)
+   is
+      Kind : constant String := (if Is_Directory then "directory" else "file");
+   begin
+      if From /= "" then
+         Ada.Text_IO.Put_Line ("moved " & Kind & " '" & From & "' to '" & To & "'");
+      else
+         Ada.Text_IO.Put_Line ("moved new " & Kind & " to '" & To & "'");
+      end if;
+   end Handle_Move_Event;
 begin
-   I.Add_Watch (Path => Ada.Command_Line.Argument (1));
-   I.Process_Events (Handle_Event'Access);
+   Instance.Add_Watch (Path => Ada.Command_Line.Argument (1));
+   Instance.Process_Events (Handle_Event'Access, Handle_Move_Event'Access);
 end Monitor;

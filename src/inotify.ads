@@ -16,6 +16,7 @@ private with Interfaces.C;
 
 private with Ada.Containers.Indefinite_Hashed_Maps;
 private with Ada.Finalization;
+private with Ada.Strings.Unbounded;
 
 private with GNAT.OS_Lib;
 
@@ -61,6 +62,8 @@ package Inotify is
 
    procedure Remove_Watch (Object : in out Instance; Subject : Watch);
 
+   function Name (Object : Instance; Subject : Watch) return String;
+
    type Event_Kind is
      (Accessed,
       Modified,
@@ -84,6 +87,26 @@ package Inotify is
          Is_Directory : Boolean;
          Name         : String));
    --  Wait and process events
+   --
+   --  If reading an event fails, a Read_Error is raised. If the event queue
+   --  overflowed then Queue_Overflow_Error is raised.
+
+   procedure Process_Events
+     (Object : in out Instance;
+      Handle :        not null access procedure
+        (Subject      : Watch;
+         Event        : Event_Kind;
+         Is_Directory : Boolean;
+         Name         : String);
+      Move_Handle : not null access procedure
+        (Subject      : Watch;
+         Is_Directory : Boolean;
+         From, To     : String));
+   --  Wait and process events
+   --
+   --  Move_Handle is called after matching Moved_From and Moved_To events
+   --  have been processed. To be effective, Add_Watch must have been called
+   --  with a mask containing these two events.
    --
    --  If reading an event fails, a Read_Error is raised. If the event queue
    --  overflowed then Queue_Overflow_Error is raised.
@@ -147,6 +170,16 @@ private
       Moved_Self      =>
         True,
       others => False);
+
+   -----------------------------------------------------------------------------
+
+   package SU renames Ada.Strings.Unbounded;
+
+   type Move is record
+      From, To : SU.Unbounded_String;
+   end record;
+
+   -----------------------------------------------------------------------------
 
    function Hash (Key : Interfaces.C.int) return Ada.Containers.Hash_Type is
      (Ada.Containers.Hash_Type (Key));

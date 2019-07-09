@@ -13,32 +13,32 @@ An Ada 2012 library for monitoring filesystem events using Linux' inotify API.
 with Ada.Command_Line;
 with Ada.Text_IO;
 
-with Inotify;
+with Inotify.Recursive;
 
 procedure Example is
+   Instance : Inotify.Recursive.Recursive_Instance;
+
    procedure Handle_Event
      (Subject      : Inotify.Watch;
       Event        : Inotify.Event_Kind;
       Is_Directory : Boolean;
-      Name         : String) is
+      Name         : String)
+   is
+      Kind : constant String := (if Is_Directory then "directory" else "file");
    begin
-      Ada.Text_IO.Put_Line (Event'Image);
-
-      if Is_Directory then
-         Ada.Text_IO.Put_Line ("  [directory] '" & Name & "'");
-      else
-         Ada.Text_IO.Put_Line ("  [file] '" & Name & "'");
-      end if;
+      Ada.Text_IO.Put_Line (Event'Image & " " & Instance.Name (Subject));
+      Ada.Text_IO.Put_Line ("  [" & Kind & "] '" & Name & "'");
    end Handle_Event;
-
-   I : Inotify.Instance;
 begin
-   I.Add_Watch
+   Instance.Add_Watch
      (Path => Ada.Command_Line.Argument (1);
       Mask => (Modified | Closed_Write | Closed_No_Write => True, others => False));
-   I.Process_Events (Handle_Event'Access);
+   Instance.Process_Events (Handle_Event'Access);
 end Main;
 ```
+
+An optional second access-to-procedure parameter can be added to `Process_Events`
+to handle move events. See [`examples/monitor.adb`][url-example].
 
 ## Dependencies
 
@@ -88,5 +88,6 @@ a bugfix or an improvement.
 
 This library is distributed under the terms of the [Apache License 2.0][url-apache].
 
-  [url-contributing]: /CONTRIBUTING.md
   [url-apache]: https://opensource.org/licenses/Apache-2.0
+  [url-contributing]: /CONTRIBUTING.md
+  [url-example]: /examples/monitor.adb

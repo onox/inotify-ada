@@ -69,7 +69,6 @@ package body Inotify is
       end if;
 
       Object.Watches.Include (Result, Path);
-
       return (Watch => Result);
    end Add_Watch;
 
@@ -78,7 +77,7 @@ package body Inotify is
       Path   :        String;
       Mask   :        Watch_Bits := All_Events)
    is
-      Result : constant Watch := Object.Add_Watch (Path, Mask);
+      Result : constant Watch := Instance'Class (Object).Add_Watch (Path, Mask);
    begin
       pragma Assert (Result.Watch /= -1);
    end Add_Watch;
@@ -95,6 +94,9 @@ package body Inotify is
 
       Object.Watches.Delete (Subject.Watch);
    end Remove_Watch;
+
+   function Name (Object : Instance; Subject : Watch) return String is
+     (Object.Watches.Element (Subject.Watch));
 
    -----------------------------------------------------------------------------
 
@@ -125,13 +127,26 @@ package body Inotify is
    for Event_Bits'Size use Interfaces.C.unsigned'Size;
    for Event_Bits'Alignment use Interfaces.C.unsigned'Alignment;
 
+   function Hash (Key : Interfaces.C.unsigned) return Ada.Containers.Hash_Type is
+     (Ada.Containers.Hash_Type (Key));
+
+   package Move_Maps is new Ada.Containers.Indefinite_Hashed_Maps
+     (Key_Type        => Interfaces.C.unsigned,
+      Element_Type    => Move,
+      Hash            => Hash,
+      Equivalent_Keys => Interfaces.C."=");
+
    procedure Process_Events
      (Object : in out Instance;
       Handle :        not null access procedure
         (Subject      : Watch;
          Event        : Event_Kind;
          Is_Directory : Boolean;
-         Name         : String))
+         Name         : String);
+      Move_Handle : not null access procedure
+        (Subject      : Watch;
+         Is_Directory : Boolean;
+         From, To     : String))
    is
       use Ada.Streams;
 
@@ -147,8 +162,10 @@ package body Inotify is
       Length : Stream_Element_Offset;
       Buffer : Stream_Element_Array (1 .. 4096)
         with Alignment => 4;
+
+      Moves : Move_Maps.Map;
    begin
-      loop
+      while not Object.Watches.Is_Empty loop
          Length := Stream_Element_Offset (GNAT.OS_Lib.Read
            (Object.Instance, Buffer'Address, Buffer'Length));
 
@@ -174,10 +191,8 @@ package body Inotify is
                      end if;
                      pragma Assert (Event.Watch /= -1);
 
-                     --  TODO Handle.Cookie
-
                      if Mask.Ignored then
-                        Object.Watches.Delete (Event.Watch);
+                        Object.Watches.Exclude (Event.Watch);
                      else
                         declare
                            Directory : constant String := Object.Watches.Element (Event.Watch);
@@ -201,6 +216,35 @@ package body Inotify is
                                  Handle
                                    ((Watch => Event.Watch), Mask.Event,
                                     Mask.Is_Directory, Directory & "/" & Name);
+
+                                 case Mask.Event is
+                                    when Moved_From =>
+                                       Moves.Insert (Event.Cookie,
+                                         (From => SU.To_Unbounded_String (Directory & "/" & Name),
+                                          To   => <>));
+                                       --  TODO If inode is moved to outside watched directory,
+                                       --  then there will never be a Moved_To or Moved_Self
+                                       --  if instance is not recursive
+                                    when Moved_To =>
+                                       if Moves.Contains (Event.Cookie) then
+                                          --  It's a rename
+                                          Move_Handle
+                                            (Subject      => (Watch => Event.Watch),
+                                             Is_Directory => Mask.Is_Directory,
+                                             From => SU.To_String (Moves (Event.Cookie).From),
+                                             To   => Directory & "/" & Name);
+
+                                          Moves.Delete (Event.Cookie);
+                                       else
+                                          Move_Handle
+                                            (Subject      => (Watch => Event.Watch),
+                                             Is_Directory => Mask.Is_Directory,
+                                             From => "",
+                                             To   => Directory & "/" & Name);
+                                       end if;
+                                    when others =>
+                                       null;
+                                 end case;
                               end;
                            else
                               Handle
@@ -216,6 +260,22 @@ package body Inotify is
             end;
          end if;
       end loop;
+   end Process_Events;
+
+   procedure Process_Events
+     (Object : in out Instance;
+      Handle :        not null access procedure
+        (Subject      : Watch;
+         Event        : Event_Kind;
+         Is_Directory : Boolean;
+         Name         : String))
+   is
+      procedure Move_Handle
+        (Subject      : Watch;
+         Is_Directory : Boolean;
+         From, To     : String) is null;
+   begin
+      Object.Process_Events (Handle, Move_Handle'Access);
    end Process_Events;
 
 end Inotify;
