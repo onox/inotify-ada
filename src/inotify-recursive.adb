@@ -41,7 +41,8 @@ package body Inotify.Recursive is
          end if;
       end Add_Entry;
    begin
-      Recursive_Mask.Created    := True;
+      Recursive_Mask.Created      := True;
+      Recursive_Mask.Deleted_Self := True;
       Recursive_Mask.Moved_From := True;
       Recursive_Mask.Moved_To   := True;
       Recursive_Mask.Moved_Self := True;
@@ -114,6 +115,16 @@ package body Inotify.Recursive is
                if Is_Directory then
                   Object.Add_Watch (Name, Mask);
                end if;
+            when Deleted_Self =>
+               if Mask.Deleted_Self then
+                  Handle (Subject, Event, Is_Directory, Name);
+                  --  TODO Is_Directory is always False even if inode is a directory
+               end if;
+
+               --  The OS will already have deleted the watch and generated
+               --  an Ignored event, which caused the watch to be deleted from
+               --  Object.Watches in Instance.Process_Events
+               Object.Masks.Delete (Subject.Watch);
             when Moved_From =>
                if Mask.Moved_From then
                   Handle (Subject, Event, Is_Directory, Name);
