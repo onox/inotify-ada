@@ -47,8 +47,9 @@ package body Inotify.Recursive is
       Recursive_Mask.Moved_Self := True;
 
       Ada.Directories.Search (Path, "", Process => Add_Entry'Access);
-      Object.Mask := Mask;  --  TODO Map watch to mask
-      return Instance (Object).Add_Watch (Path, Recursive_Mask);
+      return Result : constant Watch := Instance (Object).Add_Watch (Path, Recursive_Mask) do
+         Object.Masks.Insert (Result.Watch, Mask);
+      end return;
    end Add_Watch;
 
    procedure Remove_Children (Object : in out Recursive_Instance; Subject : Watch) is
@@ -69,6 +70,7 @@ package body Inotify.Recursive is
       Object.Watches.Iterate (Iterate'Access);
       for Element of Watches loop
          Instance (Object).Remove_Watch (Element);
+         Object.Masks.Delete (Element.Watch);
       end loop;
    end Remove_Children;
 
@@ -76,7 +78,8 @@ package body Inotify.Recursive is
    procedure Remove_Watch (Object : in out Recursive_Instance; Subject : Watch) is
    begin
       Object.Remove_Children (Subject);
-      Instance (Object).Remove_Watch (Subject);  --  TODO Remove mapping of watch to mask
+      Instance (Object).Remove_Watch (Subject);
+      Object.Masks.Delete (Subject.Watch);
    end Remove_Watch;
 
    overriding
@@ -98,27 +101,29 @@ package body Inotify.Recursive is
         (Subject      : Inotify.Watch;
          Event        : Inotify.Event_Kind;
          Is_Directory : Boolean;
-         Name         : String) is
+         Name         : String)
+      is
+         Mask : constant Watch_Bits := Object.Masks (Subject.Watch);
       begin
          case Event is
             when Created =>
-               if Object.Mask.Created then
+               if Mask.Created then
                   Handle (Subject, Event, Is_Directory, Name);
                end if;
 
                if Is_Directory then
-                  Object.Add_Watch (Name, Object.Mask);  --  TODO Use mask from mapping using Subject
+                  Object.Add_Watch (Name, Mask);
                end if;
             when Moved_From =>
-               if Object.Mask.Moved_From then
+               if Mask.Moved_From then
                   Handle (Subject, Event, Is_Directory, Name);
                end if;
             when Moved_To =>
-               if Object.Mask.Moved_To then
+               if Mask.Moved_To then
                   Handle (Subject, Event, Is_Directory, Name);
                end if;
             when Moved_Self =>
-               if Object.Mask.Moved_Self then
+               if Mask.Moved_Self then
                   Handle (Subject, Event, Is_Directory, Name);
                   --  TODO Is_Directory is always False even if inode is a directory
                end if;
@@ -131,8 +136,7 @@ package body Inotify.Recursive is
                   begin
                      if +Element.From = Name then
                         Object.Remove_Watch (Subject);
-                        Object.Add_Watch (+Element.To, Object.Mask);
-                        --  TODO Use mask from mapping using Subject
+                        Object.Add_Watch (+Element.To, Mask);
                         Cursor := Position;
                      end if;
                   end Process_Move;
@@ -163,7 +167,7 @@ package body Inotify.Recursive is
             if From /= "" then
                Moves.Append ((+From, +To));
             else
-               Object.Add_Watch (To, Object.Mask);  --  TODO Use mask from mapping using Subject
+               Object.Add_Watch (To, Object.Masks (Subject.Watch));
             end if;
          end if;
       end Handle_Move_Event;

@@ -51,8 +51,14 @@ package Inotify.Recursive is
 
 private
 
+   package Mask_Maps is new Ada.Containers.Indefinite_Hashed_Maps
+     (Key_Type        => Interfaces.C.int,
+      Element_Type    => Watch_Bits,
+      Hash            => Hash,
+      Equivalent_Keys => Interfaces.C."=");
+
    type Recursive_Instance is limited new Instance with record
-      Mask : Watch_Bits := All_Events;
+      Masks : Mask_Maps.Map;
    end record;
 
 end Inotify.Recursive;
