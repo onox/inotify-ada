@@ -19,6 +19,8 @@ with System;
 with Ada.Streams;
 with Ada.Unchecked_Conversion;
 
+with Ada.Containers.Bounded_Vectors;
+
 package body Inotify is
 
    use type GNAT.OS_Lib.File_Descriptor;
@@ -129,14 +131,14 @@ package body Inotify is
    for Event_Bits'Size use Interfaces.C.unsigned'Size;
    for Event_Bits'Alignment use Interfaces.C.unsigned'Alignment;
 
-   function Hash (Key : Interfaces.C.unsigned) return Ada.Containers.Hash_Type is
-     (Ada.Containers.Hash_Type (Key));
+   type Cookie_Move_Pair is record
+      Key   : Interfaces.C.unsigned;
+      Value : Move;
+   end record;
 
-   package Move_Maps is new Ada.Containers.Indefinite_Hashed_Maps
-     (Key_Type        => Interfaces.C.unsigned,
-      Element_Type    => Move,
-      Hash            => Hash,
-      Equivalent_Keys => Interfaces.C."=");
+   package Move_Vectors is new Ada.Containers.Bounded_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Cookie_Move_Pair);
 
    procedure Process_Events
      (Object : in out Instance;
@@ -165,7 +167,30 @@ package body Inotify is
       Buffer : Stream_Element_Array (1 .. 4096)
         with Alignment => 4;
 
-      Moves : Move_Maps.Map;
+      Moves : Move_Vectors.Vector (Capacity => 8);
+      --  A small container to hold pairs of cookies and files that are moved
+      --
+      --  The container needs to be bounded because files that are moved
+      --  to outside the monitored folder do not generate Moved_To events.
+      --  A vector is used instead of a map so that the oldest pair can
+      --  be deleted if the container is full.
+
+      function Find_Move (Cookie : Interfaces.C.unsigned) return Move_Vectors.Cursor is
+         Cursor : Move_Vectors.Cursor := Move_Vectors.No_Element;
+
+         procedure Reverse_Iterate (Position : Move_Vectors.Cursor) is
+            use type Interfaces.C.unsigned;
+         begin
+            if Cookie = Moves (Position).Key then
+               Cursor := Position;
+            end if;
+         end Reverse_Iterate;
+      begin
+         Moves.Reverse_Iterate (Reverse_Iterate'Access);
+         return Cursor;
+      end Find_Move;
+
+      use type Ada.Containers.Count_Type;
    begin
       while not Object.Watches.Is_Empty loop
          Length := Stream_Element_Offset (GNAT.OS_Lib.Read
@@ -221,29 +246,36 @@ package body Inotify is
 
                                  case Mask.Event is
                                     when Moved_From =>
-                                       Moves.Insert (Event.Cookie,
+                                       if Moves.Length = Moves.Capacity then
+                                          Moves.Delete_First;
+                                       end if;
+                                       Moves.Append ((Event.Cookie,
                                          (From => SU.To_Unbounded_String (Directory & "/" & Name),
-                                          To   => <>));
-                                       --  TODO If inode is moved to outside watched directory,
+                                          To   => <>)));
+                                       --  If inode is moved to outside watched directory,
                                        --  then there will never be a Moved_To or Moved_Self
                                        --  if instance is not recursive
                                     when Moved_To =>
-                                       if Moves.Contains (Event.Cookie) then
-                                          --  It's a rename
-                                          Move_Handle
-                                            (Subject      => (Watch => Event.Watch),
-                                             Is_Directory => Mask.Is_Directory,
-                                             From => SU.To_String (Moves (Event.Cookie).From),
-                                             To   => Directory & "/" & Name);
-
-                                          Moves.Delete (Event.Cookie);
-                                       else
-                                          Move_Handle
-                                            (Subject      => (Watch => Event.Watch),
-                                             Is_Directory => Mask.Is_Directory,
-                                             From => "",
-                                             To   => Directory & "/" & Name);
-                                       end if;
+                                       declare
+                                          Cursor : Move_Vectors.Cursor := Find_Move (Event.Cookie);
+                                          use type Move_Vectors.Cursor;
+                                       begin
+                                          if Cursor /= Move_Vectors.No_Element then
+                                             --  It's a rename
+                                             Move_Handle
+                                               (Subject      => (Watch => Event.Watch),
+                                                Is_Directory => Mask.Is_Directory,
+                                                From => SU.To_String (Moves (Cursor).Value.From),
+                                                To   => Directory & "/" & Name);
+                                             Moves.Delete (Cursor);
+                                          else
+                                             Move_Handle
+                                               (Subject      => (Watch => Event.Watch),
+                                                Is_Directory => Mask.Is_Directory,
+                                                From => "",
+                                                To   => Directory & "/" & Name);
+                                          end if;
+                                       end;
                                     when others =>
                                        null;
                                  end case;
