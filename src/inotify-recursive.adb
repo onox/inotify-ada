@@ -180,7 +180,7 @@ package body Inotify.Recursive is
             if From /= "" then
                Moves.Append ((+From, +To));
             else
-               Object.Add_Watch (To, Object.Masks (Subject.Watch));
+               Object.Add_Watch (To, Object.Masks.Element (Subject.Watch));
             end if;
          end if;
       end Handle_Move_Event;
