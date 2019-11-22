@@ -16,6 +16,7 @@
 
 with Ada.Containers.Bounded_Vectors;
 with Ada.Directories;
+with Ada.IO_Exceptions;
 
 package body Inotify.Recursive is
 
@@ -41,6 +42,10 @@ package body Inotify.Recursive is
          if Ada.Directories.Kind (Next_Entry) = Directory and Name not in "." | ".." then
             Object.Add_Watch (Ada.Directories.Compose (Path, Name), Recursive_Mask);
          end if;
+      exception
+         --  Ignore the folder if the user has no permission to scan it
+         when Ada.IO_Exceptions.Use_Error =>
+            null;
       end Add_Entry;
    begin
       Recursive_Mask.Created      := True;
