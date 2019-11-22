@@ -12,7 +12,14 @@ gprdir     = $(PREFIX)/share/gpr
 libdir     = $(PREFIX)/lib
 alidir     = $(libdir)
 
-.PHONY: build examples debug profile format clean install
+installcmd = $(GNATINSTALL) -p \
+	--sources-subdir=$(includedir) \
+	--project-subdir=$(gprdir) \
+	--lib-subdir=$(libdir) \
+	--ali-subdir=$(alidir) \
+	--prefix=$(PREFIX)
+
+.PHONY: build examples debug profile format clean install uninstall
 
 build:
 	$(GNATMAKE) -P tools/inotify_ada.gpr -cargs $(CFLAGS)
@@ -35,9 +42,7 @@ clean:
 	rm -rf bin build
 
 install:
-	$(GNATINSTALL) -p -q -f --install-name='inotify-ada' \
-		--sources-subdir=$(includedir) \
-		--project-subdir=$(gprdir) \
-		--lib-subdir=$(libdir) \
-		--ali-subdir=$(alidir) \
-		--prefix=$(PREFIX) -P tools/inotify_ada.gpr
+	$(installcmd) --install-name='inotify-ada' -P tools/inotify_ada.gpr
+
+uninstall:
+	$(installcmd) --uninstall --install-name='inotify-ada' -P tools/inotify_ada.gpr
