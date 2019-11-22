@@ -1,5 +1,4 @@
-/lib/
-/obj/
+/build/
 /bin/
 /auto.cgpr
 *.swp
