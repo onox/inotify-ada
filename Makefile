@@ -42,7 +42,7 @@ clean:
 	rm -rf bin build
 
 install:
-	$(installcmd) --install-name='inotify-ada' -P tools/inotify_ada.gpr
+	$(installcmd) -f --install-name='inotify-ada' -P tools/inotify_ada.gpr
 
 uninstall:
 	$(installcmd) --uninstall --install-name='inotify-ada' -P tools/inotify_ada.gpr
