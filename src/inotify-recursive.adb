@@ -44,6 +44,7 @@ package body Inotify.Recursive is
          end if;
       exception
          --  Ignore the folder if the user has no permission to scan it
+         --  or if the file is a symlink
          when Ada.IO_Exceptions.Use_Error =>
             null;
       end Add_Entry;
@@ -53,6 +54,11 @@ package body Inotify.Recursive is
       Recursive_Mask.Moved_From := True;
       Recursive_Mask.Moved_To   := True;
       Recursive_Mask.Moved_Self := True;
+
+      --  Do not follow symlinks
+      if Ada.Directories.Full_Name (Path) /= Path then
+         raise Ada.IO_Exceptions.Use_Error;
+      end if;
 
       Ada.Directories.Search (Path, "", Process => Add_Entry'Access);
       return Result : constant Watch := Instance (Object).Add_Watch (Path, Recursive_Mask) do

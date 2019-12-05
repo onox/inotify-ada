@@ -25,9 +25,9 @@ package Inotify.Recursive is
       Mask   :        Watch_Bits := All_Events) return Watch;
    --  Watch the given path and any subdirectories
    --
-   --  If the user has no permission to read the folder at the given path,
-   --  then a Use_Error is raised. Any subdirectory, however, is ignored
-   --  if it is not readable.
+   --  If the user has no permission to read the folder at the given path
+   --  or if the path is a symlink, then a Use_Error is raised. Any
+   --  subdirectory, however, is ignored if it is not readable or is a symlink.
 
    overriding
    procedure Remove_Watch (Object : in out Recursive_Instance; Subject : Watch);
