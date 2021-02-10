@@ -1,6 +1,3 @@
-pragma Assertion_Policy (Pre => Check, Pre'Class => Check);
-pragma Overflow_Mode (General => Strict, Assertions => Eliminated);
-
 pragma Restrictions (No_Obsolescent_Features);
 
 pragma Restrictions (No_Implementation_Aspect_Specifications);

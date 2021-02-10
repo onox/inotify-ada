@@ -48,6 +48,12 @@ procedure Monitor is
       end if;
    end Handle_Move_Event;
 begin
+   if Ada.Command_Line.Argument_Count /= 1 then
+      Ada.Text_IO.Put_Line ("Usage: monitor <path>");
+      Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
+      return;
+   end if;
+
    Instance.Add_Watch (Path => Ada.Command_Line.Argument (1));
    Instance.Process_Events (Handle_Event'Access, Handle_Move_Event'Access);
 end Monitor;

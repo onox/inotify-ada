@@ -1,11 +1,13 @@
+[![Alire dcf](https://img.shields.io/endpoint?url=https://alire.ada.dev/badges/inotify.json)](https://alire.ada.dev/crates/inotify.html)
 [![License](https://img.shields.io/github/license/onox/inotify-ada.svg?color=blue)](https://github.com/onox/inotify-ada/blob/master/LICENSE)
 [![Build status](https://img.shields.io/shippable/5d18ebf6cecb900006e7c241/master.svg)](https://app.shippable.com/github/onox/inotify-ada)
 [![GitHub release](https://img.shields.io/github/release/onox/inotify-ada.svg)](https://github.com/onox/inotify-ada/releases/latest)
 [![IRC](https://img.shields.io/badge/IRC-%23ada%20on%20freenode-orange.svg)](https://webchat.freenode.net/?channels=ada)
+[![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.svg)](https://gitter.im/ada-lang/Lobby)
 
 # inotify-ada
 
-An Ada 2012 library for monitoring filesystem events using Linux' inotify API.
+An Ada 2012 library to monitor filesystem events using Linux' inotify API.
 
 ## Usage
 
@@ -46,7 +48,7 @@ In order to build the library, you need to have:
 
  * An Ada 2012 compiler implementing `GNAT.OS_Lib`
 
- * GPRBuild and `make`
+ * [Alire][url-alire] and (optionally) `make`
 
 ## Installing dependencies on Ubuntu 18.04 LTS
 
@@ -56,38 +58,43 @@ Install the dependencies using apt:
 $ sudo apt install gnat-7 gprbuild make
 ```
 
-## Installation
+and then install Alire.
 
-A Makefile is provided to build the source code. Use `make` to build
-the source code:
+## Using the library
+
+Use the library in your crates as follows:
+
+```
+alr with inotify
+```
+
+## Installing the tools
+
+A tool to monitor a folder for any event can be build and run with:
+
+```
+$ alr run --args="path/to/folder"
+```
+
+Alternatively, it can be build and installed with:
 
 ```
 $ make
+$ make PREFIX=~/.local install
 ```
 
-You can override CFLAGS if desired. After having compiled the source code,
-the library can be installed by executing:
-
-```
-$ make PREFIX=/usr install
-```
-
-Change `PREFIX` to the preferred destination folder, for example `~/.local`.
-Import `inotify_ada` in your \*.gpr project file:
-
-```ada
-with "inotify_ada";
-```
+Run `inotify-ada path/to/folder` to monitor the folder for events.
 
 ## Contributing
 
-Read the [contributing guidelines][url-contributing] if you want to add
-a bugfix or an improvement.
+Please read the [contributing guidelines][url-contributing] before opening
+issues or pull requests.
 
 ## License
 
 This library is distributed under the terms of the [Apache License 2.0][url-apache].
 
+  [url-alire]: https://alire.ada.dev/
   [url-apache]: https://opensource.org/licenses/Apache-2.0
   [url-contributing]: /CONTRIBUTING.md
   [url-example]: /examples/monitor.adb
