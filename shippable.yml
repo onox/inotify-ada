@@ -2,13 +2,13 @@ language: none
 
 build:
   pre_ci_boot:
-    image_name: tomekw/ada-gnat
-    image_tag: 7.3.0
+    image_name: alire/gnat
+    image_tag: ubuntu-lts
     pull: true
   ci:
-    - apt update
-    - apt install -y --no-install-recommends gprbuild make
-    - make examples
+    - git clone --recurse-submodules https://github.com/alire-project/alire.git
+    - cd alire && gprbuild -j0 -P alr_env && cd ..
+    - PATH="alire/bin:$PATH" make
 
 integrations:
   notifications:
