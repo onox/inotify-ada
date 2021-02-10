@@ -46,8 +46,7 @@ project Monitor is
             for Switches ("ada") use ("-lgcov", "-fprofile-arcs");
          when "profiling" =>
             for Switches ("ada") use ("-pg");
-         when others =>
-            for Switches ("ada") use ("-s", "-Wl,--gc-sections");
+         when others => null;
       end case;
    end Linker;
 
