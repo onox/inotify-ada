@@ -33,7 +33,7 @@ procedure Example is
    end Handle_Event;
 begin
    Instance.Add_Watch
-     (Path => Ada.Command_Line.Argument (1);
+     (Path => Ada.Command_Line.Argument (1),
       Mask => (Modified | Closed_Write | Closed_No_Write => True, others => False));
    Instance.Process_Events (Handle_Event'Access);
 end Main;
