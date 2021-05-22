@@ -1,4 +1,4 @@
-[![Alire dcf](https://img.shields.io/endpoint?url=https://alire.ada.dev/badges/inotify.json)](https://alire.ada.dev/crates/inotify.html)
+[![Alire crate](https://img.shields.io/endpoint?url=https://alire.ada.dev/badges/inotify.json)](https://alire.ada.dev/crates/inotify.html)
 [![License](https://img.shields.io/github/license/onox/inotify-ada.svg?color=blue)](https://github.com/onox/inotify-ada/blob/master/LICENSE)
 [![Build status](https://img.shields.io/shippable/5d18ebf6cecb900006e7c241/master.svg)](https://app.shippable.com/github/onox/inotify-ada)
 [![GitHub release](https://img.shields.io/github/release/onox/inotify-ada.svg)](https://github.com/onox/inotify-ada/releases/latest)
