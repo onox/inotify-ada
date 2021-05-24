@@ -16,7 +16,9 @@
 
 private with Interfaces.C;
 
+private with Ada.Containers.Bounded_Vectors;
 private with Ada.Containers.Indefinite_Hashed_Maps;
+private with Ada.Containers.Vectors;
 private with Ada.Finalization;
 private with Ada.Strings.Unbounded;
 
@@ -63,6 +65,8 @@ package Inotify is
       Mask   :        Watch_Bits := All_Events) return Watch;
 
    procedure Remove_Watch (Object : in out Instance; Subject : Watch);
+
+   function Has_Watches (Object : in out Instance) return Boolean;
 
    function Name (Object : Instance; Subject : Watch) return String;
 
@@ -181,6 +185,15 @@ private
       From, To : SU.Unbounded_String;
    end record;
 
+   type Cookie_Move_Pair is record
+      Key   : Interfaces.C.unsigned;
+      Value : Move;
+   end record;
+
+   package Move_Vectors is new Ada.Containers.Bounded_Vectors
+     (Index_Type   => Positive,
+      Element_Type => Cookie_Move_Pair);
+
    -----------------------------------------------------------------------------
 
    function Hash (Key : Interfaces.C.int) return Ada.Containers.Hash_Type is
@@ -192,17 +205,32 @@ private
       Hash            => Hash,
       Equivalent_Keys => Interfaces.C."=");
 
+   type Watch is record
+      Watch : Interfaces.C.int;
+   end record;
+
+   package Watch_Vectors is new Ada.Containers.Vectors
+     (Index_Type   => Positive,
+      Element_Type => Watch);
+
    type Instance is limited new Ada.Finalization.Limited_Controlled with record
       Instance : GNAT.OS_Lib.File_Descriptor := GNAT.OS_Lib.Invalid_FD;
       Watches  : Watch_Maps.Map;
+
+      Defer_Remove     : Boolean := False;
+      Pending_Removals : Watch_Vectors.Vector;
+
+      Moves : Move_Vectors.Vector (Capacity => 8);
+      --  A small container to hold pairs of cookies and files that are moved
+      --
+      --  The container needs to be bounded because files that are moved
+      --  to outside the monitored folder do not generate Moved_To events.
+      --  A vector is used instead of a map so that the oldest pair can
+      --  be deleted if the container is full.
    end record;
 
    overriding procedure Initialize (Object : in out Instance);
 
    overriding procedure Finalize (Object : in out Instance);
-
-   type Watch is record
-      Watch : Interfaces.C.int;
-   end record;
 
 end Inotify;

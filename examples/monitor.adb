@@ -55,5 +55,7 @@ begin
    end if;
 
    Instance.Add_Watch (Path => Ada.Command_Line.Argument (1));
-   Instance.Process_Events (Handle_Event'Access, Handle_Move_Event'Access);
+   while Instance.Has_Watches loop
+      Instance.Process_Events (Handle_Event'Access, Handle_Move_Event'Access);
+   end loop;
 end Monitor;

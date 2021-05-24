@@ -91,6 +91,16 @@ package body Inotify.Recursive is
    overriding
    procedure Remove_Watch (Object : in out Recursive_Instance; Subject : Watch) is
    begin
+      --  Procedure Process_Events might read multiple events for a specific
+      --  watch and the callback for the first event may immediately try to
+      --  remove the watch
+      if Object.Defer_Remove then
+         if not Object.Pending_Removals.Contains (Subject) then
+            Object.Pending_Removals.Append (Subject);
+         end if;
+         return;
+      end if;
+
       Object.Remove_Children (Subject);
       Instance (Object).Remove_Watch (Subject);
       Object.Masks.Delete (Subject.Watch);

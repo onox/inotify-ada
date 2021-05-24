@@ -19,8 +19,6 @@ with System;
 with Ada.Streams;
 with Ada.Unchecked_Conversion;
 
-with Ada.Containers.Bounded_Vectors;
-
 package body Inotify is
 
    use type GNAT.OS_Lib.File_Descriptor;
@@ -92,12 +90,25 @@ package body Inotify is
          Watch    : Interfaces.C.int) return Interfaces.C.int
       with Import, Convention => C, External_Name => "inotify_rm_watch";
    begin
+      --  Procedure Process_Events might read multiple events for a specific
+      --  watch and the callback for the first event may immediately try to
+      --  remove the watch
+      if Object.Defer_Remove then
+         if not Object.Pending_Removals.Contains (Subject) then
+            Object.Pending_Removals.Append (Subject);
+         end if;
+         return;
+      end if;
+
       if Inotify_Remove_Watch (Object.Instance, Subject.Watch) = -1 then
          raise Program_Error;
       end if;
 
       Object.Watches.Delete (Subject.Watch);
    end Remove_Watch;
+
+   function Has_Watches (Object : in out Instance) return Boolean is
+     (not Object.Watches.Is_Empty);
 
    function Name (Object : Instance; Subject : Watch) return String is
      (Object.Watches.Element (Subject.Watch));
@@ -131,15 +142,6 @@ package body Inotify is
    for Event_Bits'Size use Interfaces.C.unsigned'Size;
    for Event_Bits'Alignment use Interfaces.C.unsigned'Alignment;
 
-   type Cookie_Move_Pair is record
-      Key   : Interfaces.C.unsigned;
-      Value : Move;
-   end record;
-
-   package Move_Vectors is new Ada.Containers.Bounded_Vectors
-     (Index_Type   => Positive,
-      Element_Type => Cookie_Move_Pair);
-
    procedure Process_Events
      (Object : in out Instance;
       Handle :        not null access procedure
@@ -167,133 +169,141 @@ package body Inotify is
       Buffer : Stream_Element_Array (1 .. 4096)
         with Alignment => 4;
 
-      Moves : Move_Vectors.Vector (Capacity => 8);
-      --  A small container to hold pairs of cookies and files that are moved
-      --
-      --  The container needs to be bounded because files that are moved
-      --  to outside the monitored folder do not generate Moved_To events.
-      --  A vector is used instead of a map so that the oldest pair can
-      --  be deleted if the container is full.
-
       function Find_Move (Cookie : Interfaces.C.unsigned) return Move_Vectors.Cursor is
          Cursor : Move_Vectors.Cursor := Move_Vectors.No_Element;
 
          procedure Reverse_Iterate (Position : Move_Vectors.Cursor) is
             use type Interfaces.C.unsigned;
          begin
-            if Cookie = Moves (Position).Key then
+            if Cookie = Object.Moves (Position).Key then
                Cursor := Position;
             end if;
          end Reverse_Iterate;
       begin
-         Moves.Reverse_Iterate (Reverse_Iterate'Access);
+         Object.Moves.Reverse_Iterate (Reverse_Iterate'Access);
          return Cursor;
       end Find_Move;
 
       use type Ada.Containers.Count_Type;
    begin
-      while not Object.Watches.Is_Empty loop
-         Length := Stream_Element_Offset (GNAT.OS_Lib.Read
-           (Object.Instance, Buffer'Address, Buffer'Length));
+      if Object.Watches.Is_Empty then
+         return;
+      end if;
 
-         if Length = -1 then
-            raise Read_Error;
-         end if;
+      Length := Stream_Element_Offset (GNAT.OS_Lib.Read
+        (Object.Instance, Buffer'Address, Buffer'Length));
 
-         if Length > 0 then
+      if Length = -1 then
+         raise Read_Error;
+      end if;
+
+      if Length = 0 then
+         return;
+      end if;
+
+      declare
+         Index : Stream_Element_Offset := Buffer'First;
+      begin
+         Object.Defer_Remove := True;
+
+         while Index < Buffer'First + Length loop
             declare
-               Index : Stream_Element_Offset := Buffer'First;
+               Event : constant Inotify_Event
+                 := Convert (Buffer (Index .. Index + Event_In_Bytes - 1));
+               Mask  : constant Event_Bits := Convert (Event.Mask);
+
+               Name_Length : constant Stream_Element_Offset
+                 := Stream_Element_Offset (Event.Length);
             begin
-               while Index < Buffer'First + Length loop
+               if Mask.Queue_Overflowed then
+                  raise Queue_Overflow_Error;
+               end if;
+               pragma Assert (Event.Watch /= -1);
+
+               if Mask.Ignored then
+                  Object.Watches.Exclude (Event.Watch);
+               else
                   declare
-                     Event : constant Inotify_Event
-                       := Convert (Buffer (Index .. Index + Event_In_Bytes - 1));
-                     Mask  : constant Event_Bits := Convert (Event.Mask);
-
-                     Name_Length : constant Stream_Element_Offset
-                       := Stream_Element_Offset (Event.Length);
+                     Directory : constant String := Object.Watches.Element (Event.Watch);
                   begin
-                     if Mask.Queue_Overflowed then
-                        raise Queue_Overflow_Error;
-                     end if;
-                     pragma Assert (Event.Watch /= -1);
-
-                     if Mask.Ignored then
-                        Object.Watches.Exclude (Event.Watch);
-                     else
+                     if Name_Length > 0 then
                         declare
-                           Directory : constant String := Object.Watches.Element (Event.Watch);
+                           subtype Name_Array is Interfaces.C.char_array
+                            (1 .. Interfaces.C.size_t (Event.Length));
+                           subtype Name_Buffer is Stream_Element_Array
+                            (1 .. Name_Length);
+
+                           function Convert is new Ada.Unchecked_Conversion
+                             (Source => Name_Buffer, Target => Name_Array);
+
+                           Name_Index : constant Stream_Element_Offset
+                             := Index + Event_In_Bytes;
+
+                           Name : constant String := Interfaces.C.To_Ada (Convert
+                             (Buffer (Name_Index .. Name_Index + Name_Length - 1)));
                         begin
-                           if Name_Length > 0 then
-                              declare
-                                 subtype Name_Array is Interfaces.C.char_array
-                                  (1 .. Interfaces.C.size_t (Event.Length));
-                                 subtype Name_Buffer is Stream_Element_Array
-                                  (1 .. Name_Length);
+                           Handle
+                             ((Watch => Event.Watch), Mask.Event,
+                              Mask.Is_Directory, Directory & "/" & Name);
 
-                                 function Convert is new Ada.Unchecked_Conversion
-                                   (Source => Name_Buffer, Target => Name_Array);
-
-                                 Name_Index : constant Stream_Element_Offset
-                                   := Index + Event_In_Bytes;
-
-                                 Name : constant String := Interfaces.C.To_Ada (Convert
-                                   (Buffer (Name_Index .. Name_Index + Name_Length - 1)));
-                              begin
-                                 Handle
-                                   ((Watch => Event.Watch), Mask.Event,
-                                    Mask.Is_Directory, Directory & "/" & Name);
-
-                                 case Mask.Event is
-                                    when Moved_From =>
-                                       if Moves.Length = Moves.Capacity then
-                                          Moves.Delete_First;
-                                       end if;
-                                       Moves.Append ((Event.Cookie,
-                                         (From => SU.To_Unbounded_String (Directory & "/" & Name),
-                                          To   => <>)));
-                                       --  If inode is moved to outside watched directory,
-                                       --  then there will never be a Moved_To or Moved_Self
-                                       --  if instance is not recursive
-                                    when Moved_To =>
-                                       declare
-                                          Cursor : Move_Vectors.Cursor := Find_Move (Event.Cookie);
-                                          use type Move_Vectors.Cursor;
-                                       begin
-                                          if Cursor /= Move_Vectors.No_Element then
-                                             --  It's a rename
-                                             Move_Handle
-                                               (Subject      => (Watch => Event.Watch),
-                                                Is_Directory => Mask.Is_Directory,
-                                                From => SU.To_String (Moves (Cursor).Value.From),
-                                                To   => Directory & "/" & Name);
-                                             Moves.Delete (Cursor);
-                                          else
-                                             Move_Handle
-                                               (Subject      => (Watch => Event.Watch),
-                                                Is_Directory => Mask.Is_Directory,
-                                                From => "",
-                                                To   => Directory & "/" & Name);
-                                          end if;
-                                       end;
-                                    when others =>
-                                       null;
-                                 end case;
-                              end;
-                           else
-                              Handle
-                                ((Watch => Event.Watch), Mask.Event,
-                                 Mask.Is_Directory, Directory);
-                           end if;
+                           case Mask.Event is
+                              when Moved_From =>
+                                 if Object.Moves.Length = Object.Moves.Capacity then
+                                    Object.Moves.Delete_First;
+                                 end if;
+                                 Object.Moves.Append ((Event.Cookie,
+                                   (From => SU.To_Unbounded_String (Directory & "/" & Name),
+                                    To   => <>)));
+                                 --  If inode is moved to outside watched directory,
+                                 --  then there will never be a Moved_To or Moved_Self
+                                 --  if instance is not recursive
+                              when Moved_To =>
+                                 declare
+                                    Cursor : Move_Vectors.Cursor := Find_Move (Event.Cookie);
+                                    use type Move_Vectors.Cursor;
+                                 begin
+                                    if Cursor /= Move_Vectors.No_Element then
+                                       --  It's a rename
+                                       Move_Handle
+                                         (Subject      => (Watch => Event.Watch),
+                                          Is_Directory => Mask.Is_Directory,
+                                          From => SU.To_String
+                                            (Object.Moves (Cursor).Value.From),
+                                          To   => Directory & "/" & Name);
+                                       Object.Moves.Delete (Cursor);
+                                    else
+                                       Move_Handle
+                                         (Subject      => (Watch => Event.Watch),
+                                          Is_Directory => Mask.Is_Directory,
+                                          From => "",
+                                          To   => Directory & "/" & Name);
+                                    end if;
+                                 end;
+                              when others =>
+                                 null;
+                           end case;
                         end;
+                     else
+                        Handle
+                          ((Watch => Event.Watch), Mask.Event,
+                           Mask.Is_Directory, Directory);
                      end if;
-
-                     Index := Index + Event_In_Bytes + Name_Length;
                   end;
-               end loop;
+               end if;
+
+               Index := Index + Event_In_Bytes + Name_Length;
             end;
-         end if;
-      end loop;
+         end loop;
+
+         Object.Defer_Remove := False;
+
+         --  Remove pending removals of watches after having processed
+         --  all events
+         for Watch of Object.Pending_Removals loop
+            Object.Remove_Watch (Watch);
+         end loop;
+         Object.Pending_Removals.Clear;
+      end;
    end Process_Events;
 
    procedure Process_Events

@@ -34,7 +34,10 @@ begin
    Instance.Add_Watch
      (Path => Ada.Command_Line.Argument (1),
       Mask => (Modified | Closed_Write | Closed_No_Write => True, others => False));
-   Instance.Process_Events (Handle_Event'Access);
+
+   while Instance.Has_Watches loop
+      Instance.Process_Events (Handle_Event'Access);
+   end loop;
 end Main;
 ```
 
