@@ -52,6 +52,11 @@ package Inotify is
 
    type Instance is tagged limited private;
 
+   function File_Descriptor (Object : Instance) return Integer;
+   --  Return the file descriptor of the inotify instance
+   --
+   --  The returned file descript may only be used for polling.
+
    type Watch is private;
 
    procedure Add_Watch

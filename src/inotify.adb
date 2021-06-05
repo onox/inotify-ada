@@ -47,6 +47,8 @@ package body Inotify is
       end if;
    end Finalize;
 
+   function File_Descriptor (Object : Instance) return Integer is (Integer (Object.Instance));
+
    use type Interfaces.C.int;
 
    function Add_Watch
