@@ -51,6 +51,7 @@ package Inotify is
    All_Events : constant Watch_Bits;
 
    type Instance is tagged limited private;
+   pragma Preelaborable_Initialization (Instance);
 
    function File_Descriptor (Object : Instance) return Integer;
    --  Return the file descriptor of the inotify instance
@@ -233,6 +234,7 @@ private
       --  A vector is used instead of a map so that the oldest pair can
       --  be deleted if the container is full.
    end record;
+   pragma Preelaborable_Initialization (Instance);
 
    overriding procedure Initialize (Object : in out Instance);
 

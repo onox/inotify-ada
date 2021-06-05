@@ -17,6 +17,7 @@
 package Inotify.Recursive is
 
    type Recursive_Instance is limited new Instance with private;
+   pragma Preelaborable_Initialization (Recursive_Instance);
 
    overriding
    function Add_Watch
@@ -66,5 +67,6 @@ private
    type Recursive_Instance is limited new Instance with record
       Masks : Mask_Maps.Map;
    end record;
+   pragma Preelaborable_Initialization (Recursive_Instance);
 
 end Inotify.Recursive;
