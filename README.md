@@ -38,7 +38,7 @@ begin
    while Instance.Has_Watches loop
       Instance.Process_Events (Handle_Event'Access);
    end loop;
-end Main;
+end Example;
 ```
 
 An optional second access-to-procedure parameter can be added to `Process_Events`
