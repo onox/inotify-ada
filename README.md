@@ -1,3 +1,4 @@
+[![Build status](https://github.com/onox/inotify-ada/actions/workflows/build.yaml/badge.svg)](https://github.com/onox/inotify-ada/actions/workflows/build.yaml)
 [![Alire crate](https://img.shields.io/endpoint?url=https://alire.ada.dev/badges/inotify.json)](https://alire.ada.dev/crates/inotify.html)
 [![License](https://img.shields.io/github/license/onox/inotify-ada.svg?color=blue)](https://github.com/onox/inotify-ada/blob/master/LICENSE)
 [![GitHub release](https://img.shields.io/github/release/onox/inotify-ada.svg)](https://github.com/onox/inotify-ada/releases/latest)
