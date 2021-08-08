@@ -12,6 +12,8 @@ maintainers-logins = ["onox"]
 project-files = ["inotify.gpr", "monitor.gpr"]
 executables = ["inotify-ada"]
 
+configuration.disabled = true
+
 [available.'case(os)']
 linux = true
 '...' = false
