@@ -9,28 +9,18 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**.md'
+  workflow_dispatch:
   release:
     types: [created]
 
 jobs:
   build:
-    name: Building on ${{matrix.os}} using ${{matrix.compiler}}
     runs-on: ${{matrix.os}}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-18.04, ubuntu-latest]
-        compiler: [fsf, community]
+        os: [ubuntu-latest]
     steps:
     - uses: actions/checkout@v2
-
-    - name: Install toolchain
-      uses: ada-actions/toolchain@ce2021
-      with:
-        distrib: ${{matrix.compiler}}
-        target: native
-
-    - name: Install Alire
-      uses: alire-project/setup-alire@latest-devel
-
-    - name: Build crates
-      run: make
+    - uses: alire-project/setup-alire@v1
+    - run: alr build --validation
