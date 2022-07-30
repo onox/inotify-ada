@@ -35,9 +35,9 @@ procedure Monitor is
    end Handle_Event;
 
    procedure Handle_Move_Event
-     (Subject      : Inotify.Watch;
-      Is_Directory : Boolean;
-      From, To     : String)
+     (Unused_Subject : Inotify.Watch;
+      Is_Directory   : Boolean;
+      From, To       : String)
    is
       Kind : constant String := (if Is_Directory then "directory" else "file");
    begin
