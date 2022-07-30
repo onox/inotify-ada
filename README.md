@@ -53,16 +53,6 @@ In order to build the library, you need to have:
 
  * [Alire][url-alire] and (optionally) `make`
 
-## Installing dependencies on Ubuntu 18.04 LTS
-
-Install the dependencies using apt:
-
-```sh
-$ sudo apt install gnat-7 gprbuild make
-```
-
-and then install Alire.
-
 ## Using the library
 
 Use the library in your crates as follows:
