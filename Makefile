@@ -3,7 +3,7 @@ PREFIX ?= /usr
 .PHONY: build clean install uninstall
 
 build:
-	alr build
+	alr build --validation
 
 clean:
 	alr clean

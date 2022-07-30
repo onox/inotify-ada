@@ -3,7 +3,7 @@ description = "Ada 2012 library to monitor filesystem events using Linux' inotif
 version = "2.0.0"
 website = "https://github.com/onox/inotify-ada"
 licenses = "Apache-2.0"
-tags = ["inotify"]
+tags = ["inotify", "linux"]
 
 authors = ["onox"]
 maintainers = ["onox <denkpadje@gmail.com>"]
@@ -12,9 +12,10 @@ maintainers-logins = ["onox"]
 project-files = ["inotify.gpr", "monitor.gpr"]
 executables = ["inotify-ada"]
 
-[configuration]
-disabled = true
-
 [available.'case(os)']
 linux = true
 '...' = false
+
+[build-switches]
+validation.compile_checks = "warnings"
+"*".style_checks = ["-gnatygAO-Is"]
