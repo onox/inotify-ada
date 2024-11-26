@@ -253,12 +253,17 @@ package body Inotify is
                                  if Object.Moves.Length = Object.Moves.Capacity then
                                     Object.Moves.Delete_First;
                                  end if;
-                                 Object.Moves.Append ((Event.Cookie,
-                                   (From => SU.To_Unbounded_String (Directory & "/" & Name),
-                                    To   => <>)));
-                                 --  If inode is moved to outside watched directory,
-                                 --  then there will never be a Moved_To or Moved_Self
-                                 --  if instance is not recursive
+                                 declare
+                                    MP : Cookie_Move_Pair := 
+                                          (Event.Cookie, 
+                                             (From => SU.To_Unbounded_String (Directory & "/" & Name),
+                                              To   => <>));
+                                 begin
+                                    Object.Moves.Append (MP);
+                                    --  If inode is moved to outside watched directory,
+                                    --  then there will never be a Moved_To or Moved_Self
+                                    --  if instance is not recursive
+                                 end;
                               when Moved_To =>
                                  declare
                                     Cursor : Move_Vectors.Cursor := Find_Move (Event.Cookie);
